@@ -657,3 +657,38 @@ def test_cli_deps_online_asks_for_metadata_again_and_saves_it(index, capsys):
     # --online again asks for every one, though they're cached (fails if --online read the cache).
     assert main([*args, "--online"]) in (0, 1)
     assert sorted(u for u in index if u.endswith(".metadata")) == first
+
+
+@pytest.fixture
+def crypt_issues(index, monkeypatch):
+    """crypt (a transitive gap on win-arm64) publishes an Issues URL in its PyPI metadata."""
+    real = pypi.fetch_json
+
+    def fetch_json(url, *args, **kwargs):
+        data = real(url, *args, **kwargs)
+        if "/crypt/" in url:
+            data["info"]["project_urls"] = {"Issues": "https://github.com/example/crypt/issues"}
+        return data
+
+    monkeypatch.setattr(pypi, "fetch_json", fetch_json)
+    return index
+
+
+def test_deps_explain_links_a_transitive_gaps_issue_tracker(crypt_issues, capsys):
+    """#412: a package --deps found gets the `ask for a wheel` link like a listed one, and only once."""
+    for run in ("fresh", "from the cache"):
+        crypt_issues.clear()
+        main(["app==1.0", "--deps", "-p", "3.14", "-t", "win-arm64", "--explain"])
+        out = capsys.readouterr().out
+        assert out.count("ask for a wheel: https://github.com/example/crypt/issues") == 1, run
+        pinned = [u for u in crypt_issues if re.search(r"/crypt/[^/]+/json$", u)]
+        # The second run's link comes from the cache: crypt's pinned release isn't asked for again.
+        assert bool(pinned) == (run == "fresh"), (run, pinned)
+
+
+def test_deps_json_explain_has_issues_url_for_a_transitive_gap(crypt_issues, capsys):
+    main(["app==1.0", "--deps", "-p", "3.14", "-t", "win-arm64", "--json", "--explain", "--all", "--no-cache"])
+    rows = {p["name"]: p for p in json.loads(capsys.readouterr().out)["packages"]}
+    assert rows["crypt"]["via"] == {"win-arm64": ["app", "lib", "crypt"]}
+    assert rows["crypt"]["issues_url"] == "https://github.com/example/crypt/issues"
+    assert rows["lib"]["issues_url"] is None  # publishes no tracker and isn't on GitHub
