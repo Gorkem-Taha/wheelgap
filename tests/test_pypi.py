@@ -833,10 +833,54 @@ def test_extract_issues_url_github_fallback():
             "https://gitlab.com/group/subgroup/repo.git/-/blob/main/src",
             "https://gitlab.com/group/subgroup/repo/-/issues",
         ),
+        ("https://GitLab.com/owner/repo", "https://gitlab.com/owner/repo/-/issues"),
+        ("https://Codeberg.org/owner/repo", "https://codeberg.org/owner/repo/issues"),
+        ("https://gitlab.com/owner/-/tree/main", None),
+        ("https://gitlab.com/owner/.git", None),
+        ("https://gitlab.com/group/.git/-/tree/main", None),
+        ("https://codeberg.org/owner/.git", None),
+        ("http://gitlab.com/owner/repo", None),
+        ("http://codeberg.org/owner/repo", None),
+        ("https://user@gitlab.com/owner/repo", None),
+        ("https://codeberg.org/../repo", None),
+        ("https://gitlab.com/owner/../-/issues", None),
     ],
 )
 def test_extract_issues_url_codeberg_and_gitlab_fallback(source, expected):
     assert pypi.extract_issues_url({"Source": source}) == expected
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://gitlab.com/explore/projects",
+        "https://gitlab.com/users/someone",
+        "https://gitlab.com/groups/somegroup",
+        "https://gitlab.com/snippets/12345",
+        "https://gitlab.com/dashboard/projects",
+        "https://gitlab.com/Explore/projects",
+        "https://gitlab.com/groups/somegroup/-/issues",
+        "https://codeberg.org/user/login",
+        "https://codeberg.org/explore/repos",
+        "https://codeberg.org/org/someorg",
+        "https://codeberg.org/Explore/repos",
+    ],
+)
+def test_extract_issues_url_skips_gitlab_and_codeberg_site_pages(url):
+    assert pypi.extract_issues_url(None, homepage=url) is None
+
+
+def test_extract_issues_url_gitlab_and_codeberg_homepage_fallback():
+    assert pypi.extract_issues_url(None, homepage="https://gitlab.com/owner/repo") == (
+        "https://gitlab.com/owner/repo/-/issues"
+    )
+    assert pypi.extract_issues_url(None, homepage="https://codeberg.org/owner/repo") == (
+        "https://codeberg.org/owner/repo/issues"
+    )
+
+
+def test_extract_issues_url_refuses_dot_segments_on_github():
+    assert pypi.extract_issues_url(None, homepage="https://github.com/../repo") is None
 
 
 @pytest.mark.parametrize("path", ["sponsors/someone", "orgs/pallets/projects", "users/someone/projects/1"])
