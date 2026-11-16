@@ -344,11 +344,14 @@ def _direct_roots(
 
     Traverse each root's active extras independently. A shared package requested with an
     extra by one root must not make its optional dependencies look like the other root's.
-    Metadata is cached by Resolver.requires from the resolution pass.
+    Cache the raw requirements here too: Resolver.requires caches metadata, but still
+    filters a release's wheels on every call. The target and chosen versions are fixed
+    for this walk; extras and markers are evaluated independently for each owner below.
     """
     owners: dict[str, dict[str, str]] = {}
     direct: set[str] = set()
     seen: dict[tuple[str, str], frozenset[str]] = {}
+    requirements: dict[str, list[Requirement]] = {}
     queue: deque[tuple[Requirement, frozenset[str], str, str]] = deque()
     for root in roots:
         if root.marker is not None and not marker_holds(str(root.marker), target):
@@ -374,10 +377,11 @@ def _direct_roots(
         if key in tree.errors:
             continue
         try:
-            requirements = resolver.requires(key, tree.chosen[key], target)
+            if key not in requirements:
+                requirements[key] = resolver.requires(key, tree.chosen[key], target)
         except Exception:
             continue  # Resolver already recorded the metadata error; hints must not change results
-        queue.extend((child, seen[state], owner, label) for child in requirements)
+        queue.extend((child, seen[state], owner, label) for child in requirements[key])
     return {key: tuple(labels.values()) for key, labels in owners.items() if key not in direct}
 
 

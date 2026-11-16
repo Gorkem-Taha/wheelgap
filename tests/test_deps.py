@@ -4,6 +4,7 @@ metadata. A fake JSON API serves each project page and each release page with it
 import json
 import re
 import urllib.error
+from collections import Counter
 
 import pytest
 from packaging.requirements import Requirement
@@ -546,6 +547,31 @@ def test_deps_direct_origins_preserve_roots_across_multiple_targets(index, capsy
     assert code == 1
     assert "crypt (via parenta +1)" in out
     assert index
+
+
+@pytest.mark.parametrize("target", [WIN, LIN])
+def test_direct_roots_reads_shared_requirements_once_per_target(index, monkeypatch, target):
+    monkeypatch.setitem(INDEX, "third", {"1.0": release(["lib[crypto]>=1"])})
+    roots = [Requirement(name) for name in ("app", "plain", "third")]
+    resolver = Resolver()
+    tree = resolver.resolve(roots, target)
+    calls = Counter()
+    original = resolver.requires
+
+    def requires(key, version, requested_target):
+        calls[key, version, requested_target] += 1
+        return original(key, version, requested_target)
+
+    monkeypatch.setattr(resolver, "requires", requires)
+    owners = deps._direct_roots(tree, roots, resolver, target)
+
+    assert owners["lib"] == ("app", "plain", "third")
+    assert owners["crypt"] == ("app", "third")  # plain does not request lib's crypto extra
+    if target == WIN:
+        assert owners["winonly"] == ("app", "plain", "third")
+    else:
+        assert "winonly" not in owners
+    assert calls == Counter({(key, version, target): 1 for key, version in tree.chosen.items()})
 
 
 def test_wheel_metadata_is_cached_on_disk_between_runs(index):
