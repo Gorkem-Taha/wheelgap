@@ -245,3 +245,21 @@ def test_a_file_without_a_line_is_located_at_line_1(tmp_path, monkeypatch):
         "artifactLocation": {"uri": "pyproject.toml", "uriBaseId": "%SRCROOT%"},
         "region": {"startLine": 1},
     }
+
+
+def test_transitive_hints_are_target_specific_and_keep_first_spelling():
+    linux = Target(3, 13, False, "linux-x86_64")
+    win = Target(3, 13, False, "win-arm64")
+    row = Row(
+        Package("nativeext", "1.0"),
+        {linux: Status.SOURCE, win: Status.MISSING},
+        direct_via={linux: ("My_App", "my-app", "mcp"), win: ("windows-parent",)},
+    )
+    results = valid(sarif_log([row], [linux, win], [], "source"))
+    assert "(via My_App +1)" in results[0]["message"]["text"]
+    assert "(via windows-parent)" in results[1]["message"]["text"]
+    assert "windows-parent" not in results[0]["message"]["text"]
+    row.direct_via = {}
+    without = valid(sarif_log([row], [linux, win], [], "source"))
+    assert all("(via " not in r["message"]["text"] for r in without)
+    assert [r["partialFingerprints"] for r in results] == [r["partialFingerprints"] for r in without]

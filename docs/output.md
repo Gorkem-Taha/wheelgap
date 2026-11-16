@@ -431,6 +431,9 @@ another SARIF viewer), alongside whatever output mode you use. It has two rules,
 - The message says what happens on the target, with up to three of the `--explain` lines saying why:
   `newglibc 2.0 can't install on linux-aarch64. newglibc-2.0-cp313-cp313-manylinux_2_39_aarch64.whl
   manylinux_2_39_aarch64 needs glibc 2.39, newer than ...`.
+- A transitive gap's message names the direct dependency that pulls it in on that target, as the tables do:
+  `cryptography 50.0.2 (via mcp) builds from source on win-arm64.`, or `(via mcp +2)`. Only inputs with a dependency
+  graph (uv.lock, Poetry 1.x, `--deps`) have one. Fingerprints don't change, so existing alerts stay open.
 - The location is the package's line in its lockfile or requirements file, relative to `GITHUB_WORKSPACE` (else the
   current directory), as for [`--github-annotations`](cli.md#github-annotations), or the file's first line when
   wheelgap can't tell the line (`pyproject.toml`, say). A package named on the command line, or read from a file

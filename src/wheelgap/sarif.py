@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from urllib.parse import quote
 
+from packaging.utils import canonicalize_name
+
 from . import __version__
 from .check import Row, Status, explain_lines
 from .github import Locator, relative_path
@@ -110,7 +112,15 @@ def sarif_log(
                 no_binary=pkg.no_binary,
                 only_binary=pkg.only_binary,
             )
-            text = f"{name} {WORDS[status]} {label}" + (" (advisory)" if target in advisory else "") + "."
+            seen: dict[str, str] = {}
+            for parent in row.direct_via.get(target, ()):
+                seen.setdefault(canonicalize_name(parent), parent)
+            via = tuple(seen.values())
+            hint = ""
+            if via:
+                suffix = f" +{len(via) - 1}" if len(via) > 1 else ""
+                hint = f" (via {via[0]}{suffix})"
+            text = f"{name}{hint} {WORDS[status]} {label}" + (" (advisory)" if target in advisory else "") + "."
             if reasons:
                 text += " " + "; ".join(reasons) + "."
             result: dict = {
