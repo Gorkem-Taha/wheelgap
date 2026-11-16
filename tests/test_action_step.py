@@ -517,7 +517,8 @@ def record_step(run_step):
     """Record exact argv and control both exit codes, without running wheelgap."""
     pipx = run_step.work.parent / "stubs" / "pipx"
     pipx.write_text(
-        """#!/bin/bash
+        f"""#!/bin/bash
+env | grep -q {TOKEN} && echo pipx >> "$LEAK_FILE"
 exec "$PYTHON_REAL" -c '
 import json
 import os
@@ -562,10 +563,10 @@ def test_diff_step_keeps_the_subcommand_first_without_annotations(record_step):
 
 
 def test_lockfile_step_splits_and_expands_globs_before_both_runs(record_step):
-    for name in ["b.lock", "a.lock", "unrelated.txt"]:
+    for name in ["b.lock", "a.lock", "my lock.lock", "unrelated.txt"]:
         (record_step.work / name).write_bytes(b"")
     r = record_step(WHEELGAP_ARGS="*.lock\t-p  3.13\n-t linux-aarch64")
-    args = ["a.lock", "b.lock", "-p", "3.13", "-t", "linux-aarch64"]
+    args = ["a.lock", "b.lock", "my lock.lock", "-p", "3.13", "-t", "linux-aarch64"]
     prefix = ["run", "--spec", str(ROOT), "wheelgap"]
     assert [json.loads(line) for line in r["pipx"]] == [
         prefix + ["--github-annotations"] + args,
