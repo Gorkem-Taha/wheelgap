@@ -340,7 +340,7 @@ def extract_issues_url(project_urls: dict[str, str] | None, homepage: str | None
 
     Reads `project_urls` with labels normalised as PEP 753 does (so `Issue-Tracker` and `bug_tracker` count),
     preferring issue tracker keys (Issues, Bug Tracker, Tracker).
-    Falls back to a GitHub Source/Homepage URL with `/issues` added.
+    Falls back to a GitHub, GitLab, or Codeberg Source/Homepage URL with its issue path added.
     Refuses any URL that is not an https:// URL, and any with a character that isn't printable ASCII: the URL comes
     from the package's own metadata and is printed to a terminal, where an escape sequence could rewrite the output.
     """
@@ -378,13 +378,36 @@ def extract_issues_url(project_urls: dict[str, str] | None, homepage: str | None
             parsed = urlsplit(candidate)
         except ValueError:
             continue
-        if parsed.scheme == "https" and parsed.netloc.lower() in ("github.com", "www.github.com") and _plain(candidate):
+        host = parsed.netloc.lower()
+        if parsed.scheme != "https" or not parsed.netloc or "@" in parsed.netloc or not _plain(candidate):
+            continue
+
+        if host in ("github.com", "www.github.com"):
             segments = [s for s in parsed.path.strip("/").split("/") if s]
             if len(segments) >= 2:
                 owner, repo = segments[0], segments[1].removesuffix(".git")
                 if owner.lower() in _GITHUB_RESERVED_PATHS:
                     continue
                 return f"https://github.com/{owner}/{repo}/issues"
+        elif host == "codeberg.org":
+            segments = [s for s in parsed.path.strip("/").split("/") if s]
+            if len(segments) == 2:
+                owner, repo = segments[0], segments[1].removesuffix(".git")
+                if owner and repo:
+                    return f"https://codeberg.org/{owner}/{repo}/issues"
+        elif host == "gitlab.com":
+            segments = [s for s in parsed.path.strip("/").split("/") if s]
+            if "-" in segments:
+                project_end = segments.index("-")
+                project = segments[:project_end]
+                if len(project) >= 2:
+                    project[-1] = project[-1].removesuffix(".git")
+                    if project[-1]:
+                        return f"https://gitlab.com/{'/'.join(project)}/-/issues"
+            elif len(segments) == 2:
+                owner, repo = segments[0], segments[1].removesuffix(".git")
+                if owner and repo:
+                    return f"https://gitlab.com/{owner}/{repo}/-/issues"
 
     return None
 

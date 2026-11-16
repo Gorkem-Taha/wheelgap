@@ -814,6 +814,31 @@ def test_extract_issues_url_github_fallback():
     )
 
 
+@pytest.mark.parametrize(
+    "source,expected",
+    [
+        ("https://codeberg.org/owner/repo", "https://codeberg.org/owner/repo/issues"),
+        ("https://codeberg.org/owner/repo.git", "https://codeberg.org/owner/repo/issues"),
+        ("https://codeberg.org/owner/repo/tree/main", None),
+        ("https://codeberg.org/owner", None),
+        ("https://gitlab.com/owner/repo", "https://gitlab.com/owner/repo/-/issues"),
+        ("https://gitlab.com/owner/repo.git", "https://gitlab.com/owner/repo/-/issues"),
+        (
+            "https://gitlab.com/group/subgroup/repo/-/blob/main/src",
+            "https://gitlab.com/group/subgroup/repo/-/issues",
+        ),
+        ("https://gitlab.com/group/subgroup/repo", None),
+        ("https://gitlab.com/group/subgroup/repo/blob/main/src", None),
+        (
+            "https://gitlab.com/group/subgroup/repo.git/-/blob/main/src",
+            "https://gitlab.com/group/subgroup/repo/-/issues",
+        ),
+    ],
+)
+def test_extract_issues_url_codeberg_and_gitlab_fallback(source, expected):
+    assert pypi.extract_issues_url({"Source": source}) == expected
+
+
 @pytest.mark.parametrize("path", ["sponsors/someone", "orgs/pallets/projects", "users/someone/projects/1"])
 def test_extract_issues_url_skips_github_reserved_paths(path):
     assert pypi.extract_issues_url(None, homepage=f"https://github.com/{path}") is None
