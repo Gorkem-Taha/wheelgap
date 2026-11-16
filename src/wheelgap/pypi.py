@@ -339,20 +339,29 @@ def _normalise_label(label: str) -> str:
 _GITLAB_RESERVED_PATHS = frozenset(
     {
         "-",
+        ".well-known",
         "admin",
         "api",
+        "assets",
         "dashboard",
         "explore",
+        "files",
         "groups",
         "help",
+        "import",
+        "jwt",
+        "login",
         "oauth",
         "profile",
         "projects",
         "public",
+        "s",
         "search",
+        "sitemap",
         "snippets",
         "uploads",
         "users",
+        "v2",
     }
 )
 
@@ -424,6 +433,9 @@ def extract_issues_url(project_urls: dict[str, str] | None, homepage: str | None
         if parsed.scheme != "https" or not parsed.netloc or "@" in parsed.netloc or not _plain(candidate):
             continue
 
+        # A browser decodes %2e and treats a backslash as a slash, so either could turn the link into a site page.
+        if "%" in parsed.path or "\\" in parsed.path:
+            continue
         segments = [s for s in parsed.path.strip("/").split("/") if s]
         if any(s in (".", "..") for s in segments):
             continue
