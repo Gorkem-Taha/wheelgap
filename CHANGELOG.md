@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `--deps` avoids repeating wheel filtering for shared dependency subtrees when finding the direct dependencies behind a gap. Each package's requirements are read once per target during that walk, while extras and platform markers still apply per direct dependency. (#420, thanks [@Gorkem-Taha](https://github.com/Gorkem-Taha))
+
 - `--deps` now caches each wheel's metadata file (its `Requires-Dist`) on disk for 24 hours, like pinned lookups, so a repeat run asks PyPI only for the release lists. `--no-cache` skips it, `--online` asks again, failed reads aren't cached, and the Python API doesn't use it. (#408, thanks [@sarankumar1325](https://github.com/sarankumar1325))
 - `--explain` now links each gap to the package's issue tracker from PyPI metadata (`ask for a wheel: <url>`), only for packages whose index is known to be PyPI. `--json --explain` includes an additive `issues_url` per package. (#407, thanks [@dianatofficial](https://github.com/dianatofficial))
 - Text and Markdown gap tables now name the direct dependency behind a transitive gap (for example, `cryptography (via mcp)`), with a count when more direct dependencies lead to it; works with `uv.lock`, Poetry 1.x and `--deps`, while leaving JSON and quiet output unchanged. (#406, thanks [@AdityaSreevatsaK](https://github.com/AdityaSreevatsaK))
